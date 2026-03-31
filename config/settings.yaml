@@ -4,7 +4,7 @@ storage:
   onedrive:
     user_principal_name: "user@example.onmicrosoft.com"
     input_path: "/Reports/input-report.xlsx"
-    output_path: "/Reports/ვალდებული კომპანიების ჩარიცხვები მიმდინარე ტენდერებზე.xlsx"
+    output_path: "/Reports/tender-payments.xlsm"
     state_root: "/TenderTracker/state"
     logs_root: "/TenderTracker/logs"
     debug_root: "/TenderTracker/debug"
