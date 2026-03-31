@@ -1,0 +1,116 @@
+name: Tender Tracker
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "Command to run"
+        required: true
+        default: "run"
+        type: choice
+        options:
+          - run
+          - company
+          - tender
+          - regid
+          - resume
+          - smoke-test
+      company_id:
+        description: "Company ID for company/smoke-test mode"
+        required: false
+        type: string
+      company_name:
+        description: "Company name override for company mode"
+        required: false
+        type: string
+      app_id:
+        description: "Tender app_id for tender/smoke-test mode"
+        required: false
+        type: string
+      reg_id:
+        description: "Tender registration number for regid mode"
+        required: false
+        type: string
+      run_id:
+        description: "Run ID for resume mode"
+        required: false
+        type: string
+      debug:
+        description: "Enable debug HTML capture"
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: "0 5 * * *"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      MS_TENANT_ID: ${{ secrets.MS_TENANT_ID }}
+      MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
+      MS_CLIENT_SECRET: ${{ secrets.MS_CLIENT_SECRET }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install .[dev]
+
+      - name: Run tests
+        run: python -m pytest
+
+      - name: Execute tender tracker
+        shell: bash
+        run: |
+          CMD="${{ github.event.inputs.command || 'run' }}"
+          ARGS=()
+          if [[ "${{ github.event.inputs.debug || 'false' }}" == "true" ]]; then
+            ARGS+=("--debug")
+          fi
+          case "$CMD" in
+            run)
+              python -m tender_tracker run "${ARGS[@]}"
+              ;;
+            company)
+              python -m tender_tracker company --company-id "${{ github.event.inputs.company_id }}" --company-name "${{ github.event.inputs.company_name }}" "${ARGS[@]}"
+              ;;
+            tender)
+              python -m tender_tracker tender --app-id "${{ github.event.inputs.app_id }}" "${ARGS[@]}"
+              ;;
+            regid)
+              python -m tender_tracker regid --reg-id "${{ github.event.inputs.reg_id }}" "${ARGS[@]}"
+              ;;
+            resume)
+              python -m tender_tracker resume --run-id "${{ github.event.inputs.run_id }}" "${ARGS[@]}"
+              ;;
+            smoke-test)
+              if [[ -n "${{ github.event.inputs.app_id }}" ]]; then
+                python -m tender_tracker smoke-test --app-id "${{ github.event.inputs.app_id }}" "${ARGS[@]}"
+              else
+                python -m tender_tracker smoke-test --company-id "${{ github.event.inputs.company_id }}" "${ARGS[@]}"
+              fi
+              ;;
+            *)
+              echo "Unsupported command: $CMD" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Upload debug artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tender-tracker-debug
+          path: work/debug
+          if-no-files-found: ignore
