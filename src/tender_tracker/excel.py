@@ -6,6 +6,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
+from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from tender_tracker.config import ExcelSettings
 from tender_tracker.models import CompanyRecord, PaymentRecord
@@ -87,30 +88,62 @@ def write_output_workbook(
     sheet = workbook.create_sheet(title=sheet_name, index=0)
 
     headers = {
-        "A1": "თანხა",
-        "B1": "თარიღი",
-        "C1": "კომპანია",
-        "D1": "თანხა_რიცხვი",
-        "E1": "თარიღი_თარიღად",
-        "G1": "ყველა კომპანია",
+        "A1": "კომპანია",
+        "B1": "თანხა_რიცხვი",
+        "C1": "თარიღი_თარიღად",
+        "E1": "ყველა კომპანია",
+        "G1": "raw_amount",
+        "H1": "raw_payment_date",
     }
     for cell, value in headers.items():
         sheet[cell] = value
 
     for row_index, record in enumerate(records, start=2):
-        sheet[f"A{row_index}"] = record.raw_amount
-        sheet[f"B{row_index}"] = record.raw_payment_date
-        sheet[f"C{row_index}"] = record.company_name
-        sheet[f"D{row_index}"] = (
-            f'=IF(A{row_index}="{NO_RECORDS_TEXT}","{NO_RECORDS_TEXT}",'
-            f'IF(A{row_index}="","",VALUE(SUBSTITUTE(SUBSTITUTE(A{row_index}," ლარი",""),"`",""))))'
+        sheet[f"A{row_index}"] = record.company_name
+        sheet[f"G{row_index}"] = record.raw_amount
+        sheet[f"H{row_index}"] = record.raw_payment_date
+        sheet[f"B{row_index}"] = (
+            f'=IF(G{row_index}="{NO_RECORDS_TEXT}","{NO_RECORDS_TEXT}",'
+            f'IF(G{row_index}="","",VALUE(SUBSTITUTE(SUBSTITUTE(G{row_index}," ლარი",""),"`",""))))'
         )
-        sheet[f"E{row_index}"] = (
-            f'=IF(B{row_index}="","",DATE(MID(B{row_index},7,4),MID(B{row_index},4,2),LEFT(B{row_index},2)))'
+        sheet[f"C{row_index}"] = (
+            f'=IF(H{row_index}="","",DATE(MID(H{row_index},7,4),MID(H{row_index},4,2),LEFT(H{row_index},2)))'
         )
 
     for name_row, company_name in enumerate(unique_company_names, start=2):
-        sheet[f"G{name_row}"] = company_name
+        sheet[f"E{name_row}"] = company_name
+
+    sheet.freeze_panes = "A2"
+    sheet.column_dimensions["A"].width = 28
+    sheet.column_dimensions["B"].width = 16
+    sheet.column_dimensions["C"].width = 16
+    sheet.column_dimensions["D"].width = 3
+    sheet.column_dimensions["E"].width = 28
+    sheet.column_dimensions["F"].width = 3
+    sheet.column_dimensions["G"].hidden = True
+    sheet.column_dimensions["H"].hidden = True
+
+    if records:
+        tender_table = Table(displayName=f"TenderData_{run_started_at:%Y%m%d}", ref=f"A1:C{len(records) + 1}")
+        tender_table.tableStyleInfo = TableStyleInfo(
+            name="TableStyleMedium2",
+            showFirstColumn=False,
+            showLastColumn=False,
+            showRowStripes=True,
+            showColumnStripes=False,
+        )
+        sheet.add_table(tender_table)
+
+    if unique_company_names:
+        company_table = Table(displayName=f"DebtorCompanies_{run_started_at:%Y%m%d}", ref=f"E1:E{len(unique_company_names) + 1}")
+        company_table.tableStyleInfo = TableStyleInfo(
+            name="TableStyleLight9",
+            showFirstColumn=False,
+            showLastColumn=False,
+            showRowStripes=True,
+            showColumnStripes=False,
+        )
+        sheet.add_table(company_table)
 
     workbook.save(workbook_path)
     workbook.close()

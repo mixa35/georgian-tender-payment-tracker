@@ -55,9 +55,19 @@ def test_write_output_workbook_creates_expected_columns(tmp_path: Path):
     sheet_name = write_output_workbook(output, records, ["Alpha"], __import__("datetime").datetime(2026, 3, 31))
     workbook = load_workbook(output, keep_vba=True)
     sheet = workbook[sheet_name]
-    assert sheet["A2"].value == "7`500.00 ლარი"
-    assert sheet["C2"].value == "Alpha"
-    assert sheet["G2"].value == "Alpha"
+    assert sheet["A1"].value == "კომპანია"
+    assert sheet["B1"].value == "თანხა_რიცხვი"
+    assert sheet["C1"].value == "თარიღი_თარიღად"
+    assert sheet["E1"].value == "ყველა კომპანია"
+    assert sheet["A2"].value == "Alpha"
+    assert sheet["E2"].value == "Alpha"
+    assert sheet["G2"].value == "7`500.00 ლარი"
+    assert sheet["H2"].value == "12.03.2026"
+    assert 'G2," ლარი"' in sheet["B2"].value
+    assert 'DATE(MID(H2,7,4),MID(H2,4,2),LEFT(H2,2))' in sheet["C2"].value
+    assert sheet.column_dimensions["G"].hidden is True
+    assert sheet.column_dimensions["H"].hidden is True
+    assert len(sheet.tables) == 2
     workbook.close()
 
 
