@@ -28,6 +28,7 @@ class StorageSettings:
 class ScraperSettings:
     base_url: str
     app_particip_status_id: int
+    app_status_id: int
     contract_status_ids: list[int]
     request_timeout_seconds: int
     retry_count: int
