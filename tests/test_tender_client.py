@@ -49,4 +49,6 @@ def test_search_company_uses_supplier_lookup_result(tmp_path: Path):
 
     assert captured["payload"]["org_b"] == "Company A"
     assert captured["payload"]["app_monac_id"] == "65178"
+    assert captured["payload"]["app_particip_status_id"] == "200"
+    assert captured["payload"]["app_status"] == "0"
     assert captured["payload"]["app_agr_status"] == "10"

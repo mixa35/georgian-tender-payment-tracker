@@ -11,8 +11,8 @@ storage:
 
 scraper:
   base_url: "https://tenders.procurement.gov.ge/public/library/controller.php"
-  app_particip_status_id: 0
-  app_status_id: 140
+  app_particip_status_id: 200
+  app_status_id: 0
   contract_status_ids: [10]
   request_timeout_seconds: 30
   retry_count: 3
