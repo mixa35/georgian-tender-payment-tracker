@@ -4,7 +4,7 @@ from pathlib import Path
 from openpyxl import Workbook, load_workbook
 
 from tender_tracker.config import load_settings
-from tender_tracker.excel import read_debtor_companies, write_output_workbook
+from tender_tracker.excel import build_unique_sheet_name, read_debtor_companies, write_output_workbook
 from tender_tracker.models import PaymentRecord
 from tender_tracker.state import RunStateStore
 from tender_tracker.storage import LocalStorage
@@ -35,6 +35,13 @@ def test_read_debtor_companies_filters_and_deduplicates(tmp_path: Path):
     companies, names = read_debtor_companies(workbook_path, settings.excel)
     assert [company.company_id for company in companies] == ["123456789", "111111111"]
     assert names == ["Alpha", "Gamma"]
+
+
+def test_build_unique_sheet_name_adds_numeric_suffix():
+    now = datetime(2026, 4, 1)
+    assert build_unique_sheet_name([], now) == "1 Apr"
+    assert build_unique_sheet_name(["1 Apr"], now) == "1 Apr (2)"
+    assert build_unique_sheet_name(["1 Apr", "1 Apr (2)"], now) == "1 Apr (3)"
 
 
 def test_write_output_workbook_creates_plain_values(tmp_path: Path):
@@ -102,11 +109,15 @@ def test_write_output_workbook_inserts_new_sheet_first(tmp_path: Path):
     workbook.save(output)
     workbook.close()
 
-    sheet_name = write_output_workbook(output, [], ["Alpha"], datetime(2026, 4, 1))
+    first_name = write_output_workbook(output, [], ["Alpha"], datetime(2026, 4, 1))
+    second_name = write_output_workbook(output, [], ["Alpha"], datetime(2026, 4, 1))
+    third_name = write_output_workbook(output, [], ["Alpha"], datetime(2026, 4, 1))
 
     workbook = load_workbook(output, keep_vba=True)
-    assert workbook.sheetnames[0] == sheet_name
-    assert workbook.sheetnames[1:] == ["Existing", "Archive"]
+    assert first_name == "1 Apr"
+    assert second_name == "1 Apr (2)"
+    assert third_name == "1 Apr (3)"
+    assert workbook.sheetnames[:5] == ["1 Apr (3)", "1 Apr (2)", "1 Apr", "Existing", "Archive"]
     workbook.close()
 
 
