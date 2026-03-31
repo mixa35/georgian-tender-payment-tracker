@@ -118,7 +118,7 @@ class TenderPortalClient:
             "org_b": "",
             "app_particip_status_id": str(self.settings.scraper.app_particip_status_id),
             "app_donor_id": "0",
-            "app_status": "0",
+            "app_status": str(self.settings.scraper.app_status_id),
             "app_agr_status": "10",
             "app_type": "0",
             "app_basecode": "0",
