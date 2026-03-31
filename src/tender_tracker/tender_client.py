@@ -131,6 +131,25 @@ class TenderPortalClient:
             "app_pricelist": "0",
         }
 
+    def _lookup_supplier(self, company_id: str) -> tuple[str, str] | None:
+        response = self._request(
+            "GET",
+            "https://tenders.procurement.gov.ge/public/library/list_org.php",
+            params={"q": company_id, "limit": "20", "timestamp": "0", "orgtype": "1"},
+        )
+        response.encoding = "utf-8"
+        best_match: tuple[str, str] | None = None
+        for line in response.text.splitlines():
+            parts = [part.strip() for part in line.split("|")]
+            if len(parts) < 3:
+                continue
+            supplier_id, supplier_name, supplier_code = parts[:3]
+            if supplier_code == company_id:
+                return supplier_id, supplier_name
+            if best_match is None:
+                best_match = (supplier_id, supplier_name)
+        return best_match
+
     def _infer_page_param_from_html(self, html: str) -> str | None:
         patterns = [
             r"([A-Za-z_][A-Za-z0-9_]*)\s*[:=]\s*2",
@@ -185,7 +204,14 @@ class TenderPortalClient:
 
     def search_company(self, company: CompanyRecord, contract_status_id: int) -> list[SearchResultItem]:
         payload = self._base_search_payload()
-        payload["org_b"] = company.company_id
+        supplier_match = self._lookup_supplier(company.company_id)
+        if supplier_match is not None:
+            supplier_id, supplier_name = supplier_match
+            payload["org_b"] = supplier_name
+            payload["app_monac_id"] = supplier_id
+        else:
+            self.logger.warning("Supplier lookup did not resolve company %s; falling back to raw company ID", company.company_id)
+            payload["org_b"] = company.company_id
         payload["app_agr_status"] = str(contract_status_id)
         return self._search_all_pages(payload, company.company_id, company.company_name)
 
