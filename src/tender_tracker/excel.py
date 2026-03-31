@@ -147,7 +147,7 @@ def write_output_workbook(
     if unique_company_names:
         company_table = Table(displayName=f"DebtorCompanies_{run_started_at:%Y%m%d}_{len(workbook.sheetnames)}", ref=f"E1:E{len(unique_company_names) + 1}")
         company_table.tableStyleInfo = TableStyleInfo(
-            name="TableStyleLight9",
+            name="TableStyleMedium3",
             showFirstColumn=False,
             showLastColumn=False,
             showRowStripes=True,
