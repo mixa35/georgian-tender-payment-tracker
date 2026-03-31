@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
@@ -36,7 +37,7 @@ def test_read_debtor_companies_filters_and_deduplicates(tmp_path: Path):
     assert names == ["Alpha", "Gamma"]
 
 
-def test_write_output_workbook_creates_expected_columns(tmp_path: Path):
+def test_write_output_workbook_creates_plain_values(tmp_path: Path):
     output = tmp_path / "output.xlsx"
     records = [
         PaymentRecord(
@@ -50,23 +51,45 @@ def test_write_output_workbook_creates_expected_columns(tmp_path: Path):
             parsed_payment_date=None,
             payment_exists=True,
             warnings=[],
-        )
+        ),
+        PaymentRecord(
+            company_id="123456789",
+            company_name="Beta",
+            app_id="678939",
+            tender_registration_number="B2B260000024",
+            raw_amount="ჩანაწერები არ არის",
+            cleaned_amount=None,
+            raw_payment_date="",
+            parsed_payment_date=None,
+            payment_exists=False,
+            warnings=[],
+        ),
     ]
-    sheet_name = write_output_workbook(output, records, ["Alpha"], __import__("datetime").datetime(2026, 3, 31))
+    records[0].parsed_payment_date = datetime(2026, 3, 12).date()
+
+    sheet_name = write_output_workbook(output, records, ["Alpha", "Beta"], datetime(2026, 3, 31))
     workbook = load_workbook(output, keep_vba=True)
     sheet = workbook[sheet_name]
+
     assert sheet["A1"].value == "კომპანია"
     assert sheet["B1"].value == "თანხა_რიცხვი"
     assert sheet["C1"].value == "თარიღი_თარიღად"
     assert sheet["E1"].value == "ყველა კომპანია"
+
     assert sheet["A2"].value == "Alpha"
+    assert sheet["B2"].value == 7500.0
+    assert sheet["B2"].data_type == "n"
+    assert sheet["B2"].number_format == "0.00"
+    assert isinstance(sheet["C2"].value, datetime)
+    assert sheet["C2"].value.strftime("%d/%m/%Y") == "12/03/2026"
+    assert sheet["C2"].number_format == "DD/MM/YYYY"
+
+    assert sheet["A3"].value == "Beta"
+    assert sheet["B3"].value == "ჩანაწერები არ არის"
+    assert sheet["C3"].value is None
+
     assert sheet["E2"].value == "Alpha"
-    assert sheet["G2"].value == "7`500.00 ლარი"
-    assert sheet["H2"].value == "12.03.2026"
-    assert 'G2," ლარი"' in sheet["B2"].value
-    assert 'DATE(MID(H2,7,4),MID(H2,4,2),LEFT(H2,2))' in sheet["C2"].value
-    assert sheet.column_dimensions["G"].hidden is True
-    assert sheet.column_dimensions["H"].hidden is True
+    assert sheet["E3"].value == "Beta"
     assert len(sheet.tables) == 2
     workbook.close()
 
@@ -79,7 +102,7 @@ def test_write_output_workbook_inserts_new_sheet_first(tmp_path: Path):
     workbook.save(output)
     workbook.close()
 
-    sheet_name = write_output_workbook(output, [], ["Alpha"], __import__("datetime").datetime(2026, 4, 1))
+    sheet_name = write_output_workbook(output, [], ["Alpha"], datetime(2026, 4, 1))
 
     workbook = load_workbook(output, keep_vba=True)
     assert workbook.sheetnames[0] == sheet_name
