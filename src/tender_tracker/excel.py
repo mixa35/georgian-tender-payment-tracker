@@ -84,7 +84,7 @@ def write_output_workbook(
     sheet_name = build_sheet_name(run_started_at)
     if sheet_name in workbook.sheetnames:
         workbook.remove(workbook[sheet_name])
-    sheet = workbook.create_sheet(title=sheet_name)
+    sheet = workbook.create_sheet(title=sheet_name, index=0)
 
     headers = {
         "A1": "თანხა",

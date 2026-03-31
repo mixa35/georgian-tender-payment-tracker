@@ -61,6 +61,22 @@ def test_write_output_workbook_creates_expected_columns(tmp_path: Path):
     workbook.close()
 
 
+def test_write_output_workbook_inserts_new_sheet_first(tmp_path: Path):
+    output = tmp_path / "output.xlsx"
+    workbook = Workbook()
+    workbook.active.title = "Existing"
+    workbook.create_sheet(title="Archive")
+    workbook.save(output)
+    workbook.close()
+
+    sheet_name = write_output_workbook(output, [], ["Alpha"], __import__("datetime").datetime(2026, 4, 1))
+
+    workbook = load_workbook(output, keep_vba=True)
+    assert workbook.sheetnames[0] == sheet_name
+    assert workbook.sheetnames[1:] == ["Existing", "Archive"]
+    workbook.close()
+
+
 def test_run_state_store_round_trip(tmp_path: Path):
     root = tmp_path / "storage"
     storage = LocalStorage(root)
