@@ -10,7 +10,6 @@ from zoneinfo import ZoneInfo
 from tender_tracker.config import AppSettings
 from tender_tracker.excel import read_debtor_companies, write_output_workbook
 from tender_tracker.models import CompanyRecord, PaymentRecord, RunState, SearchResultItem
-from tender_tracker.parsers import is_recent_tender
 from tender_tracker.state import RunStateStore
 from tender_tracker.storage import BaseStorage
 from tender_tracker.tender_client import TenderClientError, TenderPortalClient
@@ -76,6 +75,7 @@ class TenderTrackerApp:
         self.work_root = work_root
         self.local_input = self.work_root / "input.xlsx"
         self.local_output = self.work_root / "output.xlsm"
+        self.local_debug = self.work_root / "debug"
 
     def _download_input(self) -> tuple[list[CompanyRecord], list[str]]:
         found = self.storage.download_file(self.settings.storage.onedrive.input_path, self.local_input)
@@ -99,6 +99,19 @@ class TenderTrackerApp:
                     remote_path = f"{self.settings.storage.onedrive.logs_root.rstrip('/')}/{local_path.name}"
                     self.storage.upload_file(local_path, remote_path)
                 break
+
+    def _prepare_debug_workspace(self) -> None:
+        if not self.local_debug.exists():
+            return
+        for path in self.local_debug.glob("*.html"):
+            path.unlink()
+
+    def _upload_debug_artifacts(self, run_id: str) -> None:
+        if not self.local_debug.exists():
+            return
+        remote_root = f"{self.settings.storage.onedrive.debug_root.rstrip('/')}/{run_id}"
+        for path in self.local_debug.glob("*.html"):
+            self.storage.upload_file(path, f"{remote_root}/{path.name}")
 
     def _append_summary(self, state: RunState, **increments: int) -> None:
         for key, value in increments.items():
@@ -138,8 +151,6 @@ class TenderTrackerApp:
                 continue
 
             for item in company_results:
-                if not is_recent_tender(item, threshold_year=2022):
-                    continue
                 reg_id = item.tender_registration_number
                 if item.app_id in seen_app_ids or (reg_id and reg_id in seen_reg_ids):
                     continue
@@ -200,6 +211,7 @@ class TenderTrackerApp:
         return sheet_name
 
     def run(self) -> dict:
+        self._prepare_debug_workspace()
         companies, unique_company_names = self._download_input()
         state = self.state_store.create("run", {"mode": "run"}, companies)
         self.client.initialize()
@@ -210,10 +222,12 @@ class TenderTrackerApp:
         sheet_name = self._write_workbook(state, records, unique_company_names)
         state.stage = "completed"
         self.state_store.save(state)
+        self._upload_debug_artifacts(state.run_id)
         self._upload_log()
         return {"run_id": state.run_id, "sheet_name": sheet_name, "summary": state.summary}
 
     def run_company(self, company_id: str, company_name: str | None = None) -> dict:
+        self._prepare_debug_workspace()
         display_name = company_name or company_id
         companies = [CompanyRecord(company_id=company_id, company_name=display_name, overdue_days_raw="manual")]
         state = self.state_store.create("company", {"company_id": company_id, "company_name": display_name}, companies)
@@ -225,6 +239,7 @@ class TenderTrackerApp:
         sheet_name = self._write_workbook(state, records, [display_name])
         state.stage = "completed"
         self.state_store.save(state)
+        self._upload_debug_artifacts(state.run_id)
         self._upload_log()
         return {"run_id": state.run_id, "sheet_name": sheet_name, "summary": state.summary}
 
@@ -255,6 +270,7 @@ class TenderTrackerApp:
         return {"record": _serialize_record(record)}
 
     def resume(self, run_id: str) -> dict:
+        self._prepare_debug_workspace()
         state = self.state_store.load(run_id)
         self.client.initialize()
         targets = [_deserialize_search_item(payload) for payload in state.queued_tenders if payload["app_id"] not in state.completed_tender_ids]
@@ -263,10 +279,12 @@ class TenderTrackerApp:
         sheet_name = self._write_workbook(state, records, unique_names)
         state.stage = "completed"
         self.state_store.save(state)
+        self._upload_debug_artifacts(state.run_id)
         self._upload_log()
         return {"run_id": state.run_id, "sheet_name": sheet_name, "summary": state.summary}
 
     def smoke_test(self, company_id: str | None = None, app_id: str | None = None) -> dict:
+        self._prepare_debug_workspace()
         self.client.initialize()
         if app_id:
             return self.run_tender(app_id)
@@ -276,7 +294,6 @@ class TenderTrackerApp:
         results: list[SearchResultItem] = []
         for status_id in self.settings.scraper.contract_status_ids:
             results.extend(self.client.search_company(company, status_id))
-        preview = [asdict(result) for result in results[:5]]
         preview = [_serialize_search_item(result) for result in results[:5]]
         self._upload_log()
         return {"company_id": company_id, "count": len(results), "matches": preview}

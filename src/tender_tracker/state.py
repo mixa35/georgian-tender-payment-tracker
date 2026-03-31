@@ -28,7 +28,7 @@ class RunStateStore:
         return f"{self.settings.storage.onedrive.state_root.rstrip('/')}/cache/{app_id}.json"
 
     def create(self, command: str, args: dict[str, Any], companies: list[CompanyRecord]) -> RunState:
-        run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
         state = RunState(
             run_id=run_id,
             started_at=datetime.now(UTC).isoformat(),

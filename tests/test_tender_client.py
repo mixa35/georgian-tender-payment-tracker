@@ -1,15 +1,20 @@
 from pathlib import Path
 
+import pytest
+
+import tender_tracker.tender_client as tender_client_module
 from tender_tracker.config import load_settings
 from tender_tracker.logging_utils import build_logger
-from tender_tracker.models import CompanyRecord
-from tender_tracker.tender_client import TenderPortalClient
+from tender_tracker.models import CompanyRecord, SearchResultItem
+from tender_tracker.parsers import ParseError
+from tender_tracker.tender_client import TenderClientError, TenderPortalClient
 
 
 class DummyResponse:
-    def __init__(self, text: str):
+    def __init__(self, text: str, status_code: int = 200):
         self.text = text
         self.encoding = "utf-8"
+        self.status_code = status_code
 
 
 def test_lookup_supplier_prefers_exact_company_code(tmp_path: Path):
@@ -52,3 +57,81 @@ def test_search_company_uses_supplier_lookup_result(tmp_path: Path):
     assert captured["payload"]["app_particip_status_id"] == "200"
     assert captured["payload"]["app_status"] == "0"
     assert captured["payload"]["app_agr_status"] == "10"
+
+
+def test_request_does_not_retry_non_retriable_http_4xx(tmp_path: Path):
+    settings = load_settings("config/settings.yaml")
+    settings.scraper.retry_count = 3
+    settings.scraper.retry_backoff_seconds = 0
+    logger = build_logger(tmp_path / "test.log", "INFO")
+    client = TenderPortalClient(settings, logger=logger)
+    calls = {"count": 0}
+
+    def fake_request(method: str, url: str, timeout: int, **kwargs):
+        calls["count"] += 1
+        return DummyResponse("missing", status_code=404)
+
+    client.session.request = fake_request  # type: ignore[method-assign]
+
+    with pytest.raises(TenderClientError, match="HTTP 404"):
+        client._request("GET", "https://example.com")
+
+    assert calls["count"] == 1
+    assert client.retry_count == 0
+
+
+def test_request_retries_retriable_http_5xx(tmp_path: Path):
+    settings = load_settings("config/settings.yaml")
+    settings.scraper.retry_count = 2
+    settings.scraper.retry_backoff_seconds = 0
+    logger = build_logger(tmp_path / "test.log", "INFO")
+    client = TenderPortalClient(settings, logger=logger)
+    calls = {"count": 0}
+
+    def fake_request(method: str, url: str, timeout: int, **kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            return DummyResponse("server error", status_code=500)
+        return DummyResponse("ok", status_code=200)
+
+    client.session.request = fake_request  # type: ignore[method-assign]
+
+    response = client._request("GET", "https://example.com")
+
+    assert response.status_code == 200
+    assert calls["count"] == 2
+    assert client.retry_count == 1
+
+
+def test_fetch_tender_details_captures_parse_error_html(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    settings = load_settings("config/settings.yaml")
+    settings.scraper.debug_html_capture = False
+    logger = build_logger(tmp_path / "test.log", "INFO")
+    debug_dir = tmp_path / "debug"
+    client = TenderPortalClient(settings, logger=logger, debug_dir=debug_dir)
+    item = SearchResultItem(
+        app_id="572720",
+        company_id="448056228",
+        company_name="Test Co",
+        tender_registration_number="NAT240008087",
+        announcement_date=None,
+        row_text="",
+        page_number=1,
+        total_pages=1,
+    )
+
+    def fake_request(method: str, url: str, **kwargs):
+        return DummyResponse("<html><body>broken</body></html>", status_code=200)
+
+    def fake_parse_payment_record(html: str, search_item: SearchResultItem | None = None):
+        raise ParseError("Payment table did not contain a data row")
+
+    client._request = fake_request  # type: ignore[method-assign]
+    monkeypatch.setattr(tender_client_module, "parse_payment_record", fake_parse_payment_record)
+
+    with pytest.raises(ParseError, match="Payment table did not contain a data row"):
+        client.fetch_tender_details(item)
+
+    captured = debug_dir / "agr_docs_parse_error_572720.html"
+    assert captured.exists()
+    assert "broken" in captured.read_text(encoding="utf-8")
