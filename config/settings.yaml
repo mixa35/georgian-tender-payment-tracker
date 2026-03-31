@@ -4,7 +4,7 @@ storage:
   onedrive:
     user_principal_name: "misho@numberss.onmicrosoft.com"
     input_path: "/Trade Factor Reports and Contracts/AAA Trade Factor Report.xlsx"
-    output_path: "/TENDERS WEB SCRAPING/ვალდებული კომპანიების ჩარიცხვები მიმდინარე ტენდერებზე.xlsx"
+    output_path: "/TENDERS WEB SCRAPING/ვალდებული კომპანიების ჩარიცხვები მიმდინარე ტენდერებზე.xlsm"
     state_root: "/TenderTracker/state"
     logs_root: "/TenderTracker/logs"
     debug_root: "/TenderTracker/debug"
