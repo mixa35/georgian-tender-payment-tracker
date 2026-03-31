@@ -89,8 +89,8 @@ def write_output_workbook(
 
     headers = {
         "A1": "კომპანია",
-        "B1": "თანხა_რიცხვი",
-        "C1": "თარიღი_თარიღად",
+        "B1": "თანხა",
+        "C1": "თარიღი",
         "E1": "ყველა კომპანია",
     }
     for cell, value in headers.items():
