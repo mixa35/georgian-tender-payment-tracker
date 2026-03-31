@@ -78,15 +78,25 @@ class TenderPortalClient:
                     **kwargs,
                 )
                 response.encoding = "utf-8"
-                if response.status_code >= 500:
-                    raise TenderClientError(f"Server error {response.status_code}: {response.text[:300]}")
-                response.raise_for_status()
+                if response.status_code in {408, 429} or response.status_code >= 500:
+                    raise TenderClientError(f"Retriable HTTP {response.status_code}: {response.text[:300]}")
+                if response.status_code >= 400:
+                    raise TenderClientError(f"HTTP {response.status_code}: {response.text[:300]}")
                 return response
-            except Exception as exc:
+            except (requests.Timeout, requests.ConnectionError) as exc:
                 last_error = exc
-                self.retry_count += 1
                 if attempt >= self.settings.scraper.retry_count:
                     break
+                self.retry_count += 1
+                backoff = self.settings.scraper.retry_backoff_seconds * (2**attempt) + random.uniform(0.0, 0.3)
+                time.sleep(backoff)
+            except TenderClientError as exc:
+                last_error = exc
+                message = str(exc)
+                retriable = message.startswith("Retriable HTTP")
+                if not retriable or attempt >= self.settings.scraper.retry_count:
+                    break
+                self.retry_count += 1
                 backoff = self.settings.scraper.retry_backoff_seconds * (2**attempt) + random.uniform(0.0, 0.3)
                 time.sleep(backoff)
         raise TenderClientError(str(last_error)) from last_error

@@ -14,6 +14,10 @@ from tender_tracker.models import CompanyRecord, PaymentRecord
 NO_RECORDS_TEXT = "ჩანაწერები არ არის"
 
 
+class InputWorkbookError(ValueError):
+    """Raised when the configured input workbook cannot be read safely."""
+
+
 def _normalize_company_id(value: object) -> str:
     digits = "".join(ch for ch in str(value).strip() if ch.isdigit())
     return digits.zfill(9) if digits else ""
@@ -34,6 +38,25 @@ def _is_positive_overdue(value: object) -> bool:
         return False
 
 
+def _column_index(header: list[str], excel_settings: ExcelSettings) -> dict[str, int]:
+    index = {name: idx for idx, name in enumerate(header)}
+    required = [
+        excel_settings.company_id_column,
+        excel_settings.company_name_column,
+        excel_settings.overdue_days_column,
+    ]
+    missing = [name for name in required if name not in index]
+    if missing:
+        available = [name for name in header if name]
+        raise InputWorkbookError(
+            "Input workbook is missing required columns: "
+            + ", ".join(missing)
+            + ". Found columns: "
+            + (", ".join(available) if available else "(none)")
+        )
+    return index
+
+
 def read_debtor_companies(workbook_path: Path, excel_settings: ExcelSettings) -> tuple[list[CompanyRecord], list[str]]:
     workbook = load_workbook(workbook_path, read_only=True, data_only=True)
     try:
@@ -44,7 +67,7 @@ def read_debtor_companies(workbook_path: Path, excel_settings: ExcelSettings) ->
             return [], []
 
         header = [str(cell).strip() if cell is not None else "" for cell in rows[0]]
-        index = {name: idx for idx, name in enumerate(header)}
+        index = _column_index(header, excel_settings)
         company_id_index = index[excel_settings.company_id_column]
         company_name_index = index[excel_settings.company_name_column]
         overdue_index = index[excel_settings.overdue_days_column]
@@ -134,7 +157,10 @@ def write_output_workbook(
     sheet.column_dimensions["F"].width = 3
 
     if records:
-        tender_table = Table(displayName=f"TenderData_{run_started_at:%Y%m%d}_{len(workbook.sheetnames)}", ref=f"A1:C{len(records) + 1}")
+        tender_table = Table(
+            displayName=f"TenderData_{run_started_at:%Y%m%d}_{len(workbook.sheetnames)}",
+            ref=f"A1:C{len(records) + 1}",
+        )
         tender_table.tableStyleInfo = TableStyleInfo(
             name="TableStyleMedium2",
             showFirstColumn=False,
@@ -145,7 +171,10 @@ def write_output_workbook(
         sheet.add_table(tender_table)
 
     if unique_company_names:
-        company_table = Table(displayName=f"DebtorCompanies_{run_started_at:%Y%m%d}_{len(workbook.sheetnames)}", ref=f"E1:E{len(unique_company_names) + 1}")
+        company_table = Table(
+            displayName=f"DebtorCompanies_{run_started_at:%Y%m%d}_{len(workbook.sheetnames)}",
+            ref=f"E1:E{len(unique_company_names) + 1}",
+        )
         company_table.tableStyleInfo = TableStyleInfo(
             name="TableStyleMedium3",
             showFirstColumn=False,

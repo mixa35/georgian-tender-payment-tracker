@@ -1,10 +1,16 @@
 from datetime import datetime
 from pathlib import Path
 
+import pytest
 from openpyxl import Workbook, load_workbook
 
 from tender_tracker.config import load_settings
-from tender_tracker.excel import build_unique_sheet_name, read_debtor_companies, write_output_workbook
+from tender_tracker.excel import (
+    InputWorkbookError,
+    build_unique_sheet_name,
+    read_debtor_companies,
+    write_output_workbook,
+)
 from tender_tracker.models import PaymentRecord
 from tender_tracker.state import RunStateStore
 from tender_tracker.storage import LocalStorage
@@ -35,6 +41,25 @@ def test_read_debtor_companies_filters_and_deduplicates(tmp_path: Path):
     companies, names = read_debtor_companies(workbook_path, settings.excel)
     assert [company.company_id for company in companies] == ["123456789", "111111111"]
     assert names == ["Alpha", "Gamma"]
+
+
+def test_read_debtor_companies_raises_helpful_error_for_missing_columns(tmp_path: Path):
+    workbook_path = tmp_path / "input.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    settings = load_settings("config/settings.yaml")
+    sheet.append([settings.excel.company_name_column, settings.excel.overdue_days_column])
+    sheet.append(["Alpha", 3])
+    workbook.save(workbook_path)
+    workbook.close()
+
+    with pytest.raises(InputWorkbookError) as exc_info:
+        read_debtor_companies(workbook_path, settings.excel)
+
+    message = str(exc_info.value)
+    assert settings.excel.company_id_column in message
+    assert settings.excel.company_name_column in message
+    assert settings.excel.overdue_days_column in message
 
 
 def test_build_unique_sheet_name_adds_numeric_suffix():

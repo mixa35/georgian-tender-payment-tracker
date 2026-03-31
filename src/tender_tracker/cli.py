@@ -51,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
     logger = build_logger(log_path, settings.scraper.log_level)
     storage = build_storage(settings)
     state_store = RunStateStore(settings, storage)
-    client = TenderPortalClient(settings, logger=logger, debug_dir=debug_dir if settings.scraper.debug_html_capture else None)
+    client = TenderPortalClient(settings, logger=logger, debug_dir=debug_dir)
     app = create_app(settings, storage, state_store, client, logger)
 
     if args.command == "run":

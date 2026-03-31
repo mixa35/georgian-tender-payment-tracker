@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import tempfile
 import shutil
+import time
 from typing import Any
 from urllib.parse import quote
 
@@ -85,13 +87,18 @@ class GraphOneDriveStorage(BaseStorage):
         self.settings = settings
         self._session = requests.Session()
         self._access_token: str | None = None
+        self._access_token_expires_at = 0.0
         self._base_url = "https://graph.microsoft.com/v1.0"
         self._user = settings.storage.onedrive.user_principal_name
 
-    def _token(self) -> str:
-        if self._access_token:
+    def _token(self, *, force_refresh: bool = False) -> str:
+        if (
+            not force_refresh
+            and self._access_token
+            and time.monotonic() < self._access_token_expires_at - 300
+        ):
             return self._access_token
-        response = requests.post(
+        response = self._session.post(
             f"https://login.microsoftonline.com/{self.settings.auth.tenant_id}/oauth2/v2.0/token",
             data={
                 "client_id": self.settings.auth.client_id,
@@ -102,11 +109,13 @@ class GraphOneDriveStorage(BaseStorage):
             timeout=30,
         )
         response.raise_for_status()
-        self._access_token = response.json()["access_token"]
+        payload = response.json()
+        self._access_token = payload["access_token"]
+        self._access_token_expires_at = time.monotonic() + int(payload.get("expires_in", 3600))
         return self._access_token
 
-    def _headers(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self._token()}"}
+    def _headers(self, *, force_refresh: bool = False) -> dict[str, str]:
+        return {"Authorization": f"Bearer {self._token(force_refresh=force_refresh)}"}
 
     def _normalize(self, remote_path: str) -> str:
         return "/" + remote_path.strip("/")
@@ -116,14 +125,21 @@ class GraphOneDriveStorage(BaseStorage):
         return f"{self._base_url}/users/{quote(self._user)}/drive/root:{normalized}:"
 
     def _request(self, method: str, url: str, *, allow_404: bool = False, **kwargs: Any) -> requests.Response:
-        headers = kwargs.pop("headers", {})
-        headers.update(self._headers())
-        response = self._session.request(method, url, headers=headers, timeout=60, **kwargs)
-        if allow_404 and response.status_code == 404:
+        base_headers = kwargs.pop("headers", {})
+        for attempt in range(2):
+            headers = dict(base_headers)
+            headers.update(self._headers(force_refresh=attempt == 1))
+            response = self._session.request(method, url, headers=headers, timeout=60, **kwargs)
+            if allow_404 and response.status_code == 404:
+                return response
+            if response.status_code == 401 and attempt == 0:
+                self._access_token = None
+                self._access_token_expires_at = 0.0
+                continue
+            if response.status_code >= 400:
+                raise StorageError(f"Graph request failed: {method} {url} -> {response.status_code} {response.text[:400]}")
             return response
-        if response.status_code >= 400:
-            raise StorageError(f"Graph request failed: {method} {url} -> {response.status_code} {response.text[:400]}")
-        return response
+        raise StorageError(f"Graph request failed: {method} {url} -> unauthorized after token refresh")
 
     def _ensure_remote_dir(self, remote_dir: str) -> None:
         normalized = self._normalize(remote_dir)
@@ -199,9 +215,18 @@ class GraphOneDriveStorage(BaseStorage):
         return response.text
 
     def write_text(self, remote_path: str, content: str) -> None:
-        temp_path = Path("work") / "tmp_graph_upload.txt"
-        temp_path.parent.mkdir(parents=True, exist_ok=True)
-        temp_path.write_text(content, encoding="utf-8")
+        work_dir = Path("work")
+        work_dir.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            suffix=".txt",
+            prefix="graph_upload_",
+            dir=work_dir,
+            delete=False,
+        ) as handle:
+            handle.write(content)
+            temp_path = Path(handle.name)
         try:
             self.upload_file(temp_path, remote_path)
         finally:
