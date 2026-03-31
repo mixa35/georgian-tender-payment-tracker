@@ -92,23 +92,24 @@ def write_output_workbook(
         "B1": "თანხა_რიცხვი",
         "C1": "თარიღი_თარიღად",
         "E1": "ყველა კომპანია",
-        "G1": "raw_amount",
-        "H1": "raw_payment_date",
     }
     for cell, value in headers.items():
         sheet[cell] = value
 
     for row_index, record in enumerate(records, start=2):
         sheet[f"A{row_index}"] = record.company_name
-        sheet[f"G{row_index}"] = record.raw_amount
-        sheet[f"H{row_index}"] = record.raw_payment_date
-        sheet[f"B{row_index}"] = (
-            f'=IF(G{row_index}="{NO_RECORDS_TEXT}","{NO_RECORDS_TEXT}",'
-            f'IF(G{row_index}="","",VALUE(SUBSTITUTE(SUBSTITUTE(G{row_index}," ლარი",""),"`",""))))'
-        )
-        sheet[f"C{row_index}"] = (
-            f'=IF(H{row_index}="","",DATE(MID(H{row_index},7,4),MID(H{row_index},4,2),LEFT(H{row_index},2)))'
-        )
+
+        amount_cell = sheet[f"B{row_index}"]
+        if record.cleaned_amount is None and record.raw_amount == NO_RECORDS_TEXT:
+            amount_cell.value = NO_RECORDS_TEXT
+        else:
+            amount_cell.value = record.cleaned_amount
+            amount_cell.number_format = "0.00"
+
+        date_cell = sheet[f"C{row_index}"]
+        if record.parsed_payment_date is not None:
+            date_cell.value = record.parsed_payment_date
+            date_cell.number_format = "DD/MM/YYYY"
 
     for name_row, company_name in enumerate(unique_company_names, start=2):
         sheet[f"E{name_row}"] = company_name
@@ -120,8 +121,6 @@ def write_output_workbook(
     sheet.column_dimensions["D"].width = 3
     sheet.column_dimensions["E"].width = 28
     sheet.column_dimensions["F"].width = 3
-    sheet.column_dimensions["G"].hidden = True
-    sheet.column_dimensions["H"].hidden = True
 
     if records:
         tender_table = Table(displayName=f"TenderData_{run_started_at:%Y%m%d}", ref=f"A1:C{len(records) + 1}")
