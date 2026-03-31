@@ -74,6 +74,19 @@ def build_sheet_name(now: datetime) -> str:
     return f"{now.day} {calendar.month_abbr[now.month]}"
 
 
+def build_unique_sheet_name(existing_names: list[str], now: datetime) -> str:
+    base_name = build_sheet_name(now)
+    if base_name not in existing_names:
+        return base_name
+
+    suffix = 2
+    while True:
+        candidate = f"{base_name} ({suffix})"
+        if candidate not in existing_names:
+            return candidate
+        suffix += 1
+
+
 def write_output_workbook(
     workbook_path: Path,
     records: list[PaymentRecord],
@@ -82,9 +95,7 @@ def write_output_workbook(
 ) -> str:
     workbook = load_workbook(workbook_path, keep_vba=True) if workbook_path.exists() else Workbook()
 
-    sheet_name = build_sheet_name(run_started_at)
-    if sheet_name in workbook.sheetnames:
-        workbook.remove(workbook[sheet_name])
+    sheet_name = build_unique_sheet_name(workbook.sheetnames, run_started_at)
     sheet = workbook.create_sheet(title=sheet_name, index=0)
 
     headers = {
@@ -123,7 +134,7 @@ def write_output_workbook(
     sheet.column_dimensions["F"].width = 3
 
     if records:
-        tender_table = Table(displayName=f"TenderData_{run_started_at:%Y%m%d}", ref=f"A1:C{len(records) + 1}")
+        tender_table = Table(displayName=f"TenderData_{run_started_at:%Y%m%d}_{len(workbook.sheetnames)}", ref=f"A1:C{len(records) + 1}")
         tender_table.tableStyleInfo = TableStyleInfo(
             name="TableStyleMedium2",
             showFirstColumn=False,
@@ -134,7 +145,7 @@ def write_output_workbook(
         sheet.add_table(tender_table)
 
     if unique_company_names:
-        company_table = Table(displayName=f"DebtorCompanies_{run_started_at:%Y%m%d}", ref=f"E1:E{len(unique_company_names) + 1}")
+        company_table = Table(displayName=f"DebtorCompanies_{run_started_at:%Y%m%d}_{len(workbook.sheetnames)}", ref=f"E1:E{len(unique_company_names) + 1}")
         company_table.tableStyleInfo = TableStyleInfo(
             name="TableStyleLight9",
             showFirstColumn=False,
