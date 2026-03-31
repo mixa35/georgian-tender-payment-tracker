@@ -72,8 +72,8 @@ def test_write_output_workbook_creates_plain_values(tmp_path: Path):
     sheet = workbook[sheet_name]
 
     assert sheet["A1"].value == "კომპანია"
-    assert sheet["B1"].value == "თანხა_რიცხვი"
-    assert sheet["C1"].value == "თარიღი_თარიღად"
+    assert sheet["B1"].value == "თანხა"
+    assert sheet["C1"].value == "თარიღი"
     assert sheet["E1"].value == "ყველა კომპანია"
 
     assert sheet["A2"].value == "Alpha"
