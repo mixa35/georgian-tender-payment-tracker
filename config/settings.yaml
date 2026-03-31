@@ -1,0 +1,38 @@
+storage:
+  backend: onedrive
+  local_root: "."
+  onedrive:
+    user_principal_name: "misho@numberss.onmicrosoft.com"
+    input_path: "/Trade Factor Reports and Contracts/AAA Trade Factor Report.xlsx"
+    output_path: "/TENDERS WEB SCRAPING/ვალდებული კომპანიების ჩარიცხვები მიმდინარე ტენდერებზე.xlsx"
+    state_root: "/TenderTracker/state"
+    logs_root: "/TenderTracker/logs"
+    debug_root: "/TenderTracker/debug"
+
+scraper:
+  base_url: "https://tenders.procurement.gov.ge/public/library/controller.php"
+  app_particip_status_id: 200
+  contract_status_ids: [10]
+  request_timeout_seconds: 30
+  retry_count: 3
+  retry_backoff_seconds: 1.0
+  min_request_interval_seconds: 0.3
+  detail_fetch_concurrency: 6
+  max_pages_per_company: 100
+  cache_ttl_hours: 24
+  log_level: "INFO"
+  debug_html_capture: false
+  page_param_name: ""
+  browser_user_agent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36"
+
+excel:
+  input_sheet_name: ""
+  output_sheet_date_format: "d MMM"
+  timezone: "Asia/Tbilisi"
+  company_id_column: "კომპანიის_საიდენტიფიკაციო_კოდი"
+  company_name_column: "კომპანია"
+  overdue_days_column: "ვადაგადაცილებული დღეების რაოდენობა"
+
+workflow:
+  default_cron: "0 5 * * *"
+  github_artifact_name: "tender-tracker-debug"
