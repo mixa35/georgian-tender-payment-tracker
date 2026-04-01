@@ -119,14 +119,25 @@ def parse_payment_record(html: str, search_item: SearchResultItem | None = None)
         raise ParseError("Payment table not found in agr_docs response")
 
     rows = payment_table.select("tbody > tr") or payment_table.select("tr")
+    company_id = search_item.company_id if search_item else ""
+    company_name = search_item.company_name if search_item else ""
     if len(rows) < 2:
-        raise ParseError("Payment table did not contain a data row")
+        return PaymentRecord(
+            company_id=company_id,
+            company_name=company_name,
+            app_id=search_item.app_id if search_item else "",
+            tender_registration_number=search_item.tender_registration_number if search_item else None,
+            raw_amount=NO_RECORDS_TEXT,
+            cleaned_amount=None,
+            raw_payment_date="",
+            parsed_payment_date=None,
+            payment_exists=False,
+            warnings=[],
+        )
 
     last_row = rows[-1]
     last_row_text = " ".join(last_row.stripped_strings)
     warnings: list[str] = []
-    company_id = search_item.company_id if search_item else ""
-    company_name = search_item.company_name if search_item else ""
     tender_registration_number = search_item.tender_registration_number if search_item else None
     app_id = search_item.app_id if search_item else ""
 
