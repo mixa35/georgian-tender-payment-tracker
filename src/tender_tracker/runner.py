@@ -29,16 +29,21 @@ def _serialize_search_item(item: SearchResultItem) -> dict:
 
 def _deserialize_record(payload: dict) -> PaymentRecord:
     parsed_date = payload.get("parsed_payment_date")
+    app_id = payload["app_id"]
+    tender_url = payload.get("tender_url") or (
+        f"https://tenders.procurement.gov.ge/public/?go={app_id}&lang=ge" if app_id else None
+    )
     return PaymentRecord(
         company_id=payload["company_id"],
         company_name=payload["company_name"],
-        app_id=payload["app_id"],
+        app_id=app_id,
         tender_registration_number=payload.get("tender_registration_number"),
         raw_amount=payload["raw_amount"],
         cleaned_amount=payload.get("cleaned_amount"),
         raw_payment_date=payload.get("raw_payment_date", ""),
         parsed_payment_date=datetime.fromisoformat(parsed_date).date() if parsed_date else None,
         payment_exists=payload.get("payment_exists", False),
+        tender_url=tender_url,
         warnings=payload.get("warnings", []),
     )
 
