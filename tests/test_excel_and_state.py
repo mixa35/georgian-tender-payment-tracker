@@ -106,7 +106,8 @@ def test_write_output_workbook_creates_plain_values(tmp_path: Path):
     assert sheet["A1"].value == "კომპანია"
     assert sheet["B1"].value == "თანხა"
     assert sheet["C1"].value == "თარიღი"
-    assert sheet["E1"].value == "ყველა კომპანია"
+    assert sheet["D1"].value == "ბმული"
+    assert sheet["F1"].value == "ყველა კომპანია"
 
     assert sheet["A2"].value == "Alpha"
     assert sheet["B2"].value == 7500.0
@@ -120,8 +121,8 @@ def test_write_output_workbook_creates_plain_values(tmp_path: Path):
     assert sheet["B3"].value == "ჩანაწერები არ არის"
     assert sheet["C3"].value is None
 
-    assert sheet["E2"].value == "Alpha"
-    assert sheet["E3"].value == "Beta"
+    assert sheet["F2"].value == "Alpha"
+    assert sheet["F3"].value == "Beta"
     assert len(sheet.tables) == 2
     workbook.close()
 
