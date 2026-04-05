@@ -125,7 +125,8 @@ def write_output_workbook(
         "A1": "კომპანია",
         "B1": "თანხა",
         "C1": "თარიღი",
-        "E1": "ყველა კომპანია",
+        "D1": "ბმული",
+        "F1": "ყველა კომპანია",
     }
     for cell, value in headers.items():
         sheet[cell] = value
@@ -145,21 +146,28 @@ def write_output_workbook(
             date_cell.value = record.parsed_payment_date
             date_cell.number_format = "DD/MM/YYYY"
 
+        if record.tender_url:
+            link_cell = sheet[f"D{row_index}"]
+            link_cell.value = record.tender_url
+            link_cell.hyperlink = record.tender_url
+            link_cell.style = "Hyperlink"
+
     for name_row, company_name in enumerate(unique_company_names, start=2):
-        sheet[f"E{name_row}"] = company_name
+        sheet[f"F{name_row}"] = company_name
 
     sheet.freeze_panes = "A2"
     sheet.column_dimensions["A"].width = 28
     sheet.column_dimensions["B"].width = 16
     sheet.column_dimensions["C"].width = 16
-    sheet.column_dimensions["D"].width = 3
-    sheet.column_dimensions["E"].width = 28
-    sheet.column_dimensions["F"].width = 3
+    sheet.column_dimensions["D"].width = 45
+    sheet.column_dimensions["E"].width = 3
+    sheet.column_dimensions["F"].width = 28
+    sheet.column_dimensions["G"].width = 3
 
     if records:
         tender_table = Table(
             displayName=f"TenderData_{run_started_at:%Y%m%d}_{len(workbook.sheetnames)}",
-            ref=f"A1:C{len(records) + 1}",
+            ref=f"A1:D{len(records) + 1}",
         )
         tender_table.tableStyleInfo = TableStyleInfo(
             name="TableStyleMedium2",
@@ -173,7 +181,7 @@ def write_output_workbook(
     if unique_company_names:
         company_table = Table(
             displayName=f"DebtorCompanies_{run_started_at:%Y%m%d}_{len(workbook.sheetnames)}",
-            ref=f"E1:E{len(unique_company_names) + 1}",
+            ref=f"F1:F{len(unique_company_names) + 1}",
         )
         company_table.tableStyleInfo = TableStyleInfo(
             name="TableStyleMedium3",

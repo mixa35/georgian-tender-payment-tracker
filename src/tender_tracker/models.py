@@ -45,6 +45,7 @@ class PaymentRecord:
     raw_payment_date: str
     parsed_payment_date: date | None
     payment_exists: bool
+    tender_url: str | None = None
     warnings: list[str] = field(default_factory=list)
 
 
