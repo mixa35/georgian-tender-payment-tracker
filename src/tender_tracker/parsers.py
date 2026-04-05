@@ -121,6 +121,12 @@ def parse_payment_record(html: str, search_item: SearchResultItem | None = None)
     rows = payment_table.select("tbody > tr") or payment_table.select("tr")
     company_id = search_item.company_id if search_item else ""
     company_name = search_item.company_name if search_item else ""
+    app_id_for_url = search_item.app_id if search_item else ""
+    tender_url = (
+        f"https://tenders.procurement.gov.ge/public/?go={app_id_for_url}&lang=ge"
+        if app_id_for_url
+        else None
+    )
     if len(rows) < 2:
         return PaymentRecord(
             company_id=company_id,
@@ -132,6 +138,7 @@ def parse_payment_record(html: str, search_item: SearchResultItem | None = None)
             raw_payment_date="",
             parsed_payment_date=None,
             payment_exists=False,
+            tender_url=tender_url,
             warnings=[],
         )
 
@@ -152,6 +159,7 @@ def parse_payment_record(html: str, search_item: SearchResultItem | None = None)
             raw_payment_date="",
             parsed_payment_date=None,
             payment_exists=False,
+            tender_url=tender_url,
             warnings=warnings,
         )
 
@@ -184,6 +192,7 @@ def parse_payment_record(html: str, search_item: SearchResultItem | None = None)
         raw_payment_date=raw_date,
         parsed_payment_date=parsed_date,
         payment_exists=True,
+        tender_url=tender_url,
         warnings=warnings,
     )
 
