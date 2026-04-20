@@ -19,7 +19,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--debug", action="store_true", help="Enable debug HTML capture")
 
     subparsers = parser.add_subparsers(dest="command", required=True)
-    subparsers.add_parser("run")
+    run_parser = subparsers.add_parser("run")
+    run_parser.add_argument("--clear-cache", action="store_true", help="Invalidate cache before running")
 
     company_parser = subparsers.add_parser("company")
     company_parser.add_argument("--company-id", required=True)
@@ -55,7 +56,7 @@ def main(argv: list[str] | None = None) -> int:
     app = create_app(settings, storage, state_store, client, logger)
 
     if args.command == "run":
-        result = app.run()
+        result = app.run(clear_cache=getattr(args, "clear_cache", False))
     elif args.command == "company":
         result = app.run_company(args.company_id, args.company_name or None)
     elif args.command == "tender":

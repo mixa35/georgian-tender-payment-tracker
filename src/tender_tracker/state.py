@@ -51,10 +51,22 @@ class RunStateStore:
         self.storage.write_json(self._run_state_path(state.run_id), payload)
         self.storage.write_json(self._latest_state_path(), payload)
 
+    def _cache_invalidation_path(self) -> str:
+        return f"{self.settings.storage.onedrive.state_root.rstrip('/')}/cache/invalidated_at.json"
+
     def store_cache(self, record: PaymentRecord) -> None:
         payload = json.loads(json.dumps(asdict(record), ensure_ascii=False, default=json_default))
         payload["cached_at"] = datetime.now(UTC).isoformat()
         self.storage.write_json(self._cache_path(record.app_id), payload)
 
     def read_cache(self, app_id: str) -> dict[str, Any] | None:
-        return self.storage.read_json(self._cache_path(app_id))
+        payload = self.storage.read_json(self._cache_path(app_id))
+        if payload is None:
+            return None
+        marker = self.storage.read_json(self._cache_invalidation_path())
+        if marker and payload.get("cached_at", "") < marker.get("invalidated_at", ""):
+            return None
+        return payload
+
+    def clear_cache(self) -> None:
+        self.storage.write_json(self._cache_invalidation_path(), {"invalidated_at": datetime.now(UTC).isoformat()})
