@@ -84,6 +84,32 @@ NO_PAYMENT_HTML = """
 </div>
 """
 
+SINGLE_ROW_PAYMENT_HTML = """
+<div id="agency_docs">
+  <div></div><div></div>
+  <div>
+    <table>
+      <tbody>
+        <tr>
+          <td>3`200.00 ლარი</td>
+          <td>2026</td>
+          <td>1</td>
+          <td>15.04.2026</td>
+          <td>15.04.2026-Author</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+"""
+
+EMPTY_TBODY_HTML = """
+<div id="agency_docs">
+  <div></div><div></div>
+  <div><table><tbody></tbody></table></div>
+</div>
+"""
+
 
 def test_parse_pagination_text():
     current, total, count = parse_pagination_text("45873 ჩანაწერი (გვერდი: 1/11469)")
@@ -152,6 +178,39 @@ def test_parse_payment_record_handles_no_payment_rows():
     record = parse_payment_record(NO_PAYMENT_HTML, item)
     assert record.raw_amount == NO_RECORDS_TEXT
     assert record.payment_exists is False
+
+
+def test_parse_payment_record_single_row_no_header():
+    item = SearchResultItem(
+        app_id="678938",
+        company_id="123456789",
+        company_name="Test Co",
+        tender_registration_number="B2B260000023",
+        announcement_date=date(2026, 3, 20),
+        row_text="",
+        page_number=1,
+        total_pages=1,
+    )
+    record = parse_payment_record(SINGLE_ROW_PAYMENT_HTML, item)
+    assert record.payment_exists is True
+    assert record.cleaned_amount == 3200.0
+    assert record.parsed_payment_date == date(2026, 4, 15)
+
+
+def test_parse_payment_record_empty_tbody_returns_no_records():
+    item = SearchResultItem(
+        app_id="678938",
+        company_id="123456789",
+        company_name="Test Co",
+        tender_registration_number=None,
+        announcement_date=None,
+        row_text="",
+        page_number=1,
+        total_pages=1,
+    )
+    record = parse_payment_record(EMPTY_TBODY_HTML, item)
+    assert record.payment_exists is False
+    assert record.raw_amount == NO_RECORDS_TEXT
 
 
 def test_recent_tender_uses_registration_number_threshold():

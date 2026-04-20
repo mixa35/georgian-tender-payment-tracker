@@ -127,7 +127,7 @@ def parse_payment_record(html: str, search_item: SearchResultItem | None = None)
         if app_id_for_url
         else None
     )
-    if len(rows) < 2:
+    if not rows:
         return PaymentRecord(
             company_id=company_id,
             company_name=company_name,
