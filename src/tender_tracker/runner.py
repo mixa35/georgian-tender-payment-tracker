@@ -215,8 +215,10 @@ class TenderTrackerApp:
         self._upload_output()
         return sheet_name
 
-    def run(self) -> dict:
+    def run(self, clear_cache: bool = False) -> dict:
         self._prepare_debug_workspace()
+        if clear_cache:
+            self.state_store.clear_cache()
         companies, unique_company_names = self._download_input()
         state = self.state_store.create("run", {"mode": "run"}, companies)
         self.client.initialize()

@@ -35,6 +35,11 @@ on:
         description: "Run ID for resume mode"
         required: false
         type: string
+      clear_cache:
+        description: "Clear cache before running (forces fresh fetch of all tenders)"
+        required: false
+        default: false
+        type: boolean
       debug:
         description: "Enable debug HTML capture"
         required: false
@@ -77,6 +82,9 @@ jobs:
           ARGS=()
           if [[ "${{ github.event.inputs.debug || 'false' }}" == "true" ]]; then
             ARGS+=("--debug")
+          fi
+          if [[ "${{ github.event.inputs.clear_cache || 'false' }}" == "true" ]]; then
+            ARGS+=("--clear-cache")
           fi
           case "$CMD" in
             run)
