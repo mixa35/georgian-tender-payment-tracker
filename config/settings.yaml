@@ -20,7 +20,7 @@ scraper:
   min_request_interval_seconds: 0.3
   detail_fetch_concurrency: 6
   max_pages_per_company: 100
-  cache_ttl_hours: 24
+  cache_ttl_hours: 3
   log_level: "INFO"
   debug_html_capture: false
   page_param_name: ""
