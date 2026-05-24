@@ -19,6 +19,7 @@ from tender_tracker.storage import LocalStorage
 def create_input_workbook(path: Path) -> None:
     workbook = Workbook()
     sheet = workbook.active
+    sheet.title = "2024"
     sheet.append(
         [
             "კომპანიის_საიდენტიფიკაციო_კოდი",
@@ -47,6 +48,7 @@ def test_read_debtor_companies_raises_helpful_error_for_missing_columns(tmp_path
     workbook_path = tmp_path / "input.xlsx"
     workbook = Workbook()
     sheet = workbook.active
+    sheet.title = "2024"
     settings = load_settings("config/settings.yaml")
     sheet.append([settings.excel.company_name_column, settings.excel.overdue_days_column])
     sheet.append(["Alpha", 3])
