@@ -46,7 +46,7 @@ on:
         default: false
         type: boolean
   schedule:
-    - cron: "0 5 * * *"
+    - cron: "37 2 * * *"
 
 jobs:
   run:
