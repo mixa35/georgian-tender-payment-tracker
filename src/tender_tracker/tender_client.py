@@ -10,6 +10,7 @@ from typing import Callable
 
 import requests
 
+from tender_tracker.certs import combined_ca_bundle_path
 from tender_tracker.config import AppSettings
 from tender_tracker.models import CompanyRecord, PaymentRecord, SearchPage, SearchResultItem
 from tender_tracker.parsers import ParseError, parse_payment_record, parse_search_page
@@ -41,6 +42,10 @@ class TenderPortalClient:
         self.logger = logger
         self.debug_dir = debug_dir
         self.session = requests.Session()
+        # tenders.procurement.gov.ge serves an incomplete TLS chain (it omits the
+        # "Thawte EV RSA CA G2" intermediate). Verify against certifi's roots plus
+        # that bundled intermediate so verification stays on. See certs.py.
+        self.session.verify = combined_ca_bundle_path()
         self.session.headers.update(
             {
                 "User-Agent": settings.scraper.browser_user_agent,
