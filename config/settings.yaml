@@ -19,6 +19,7 @@ scraper:
   retry_backoff_seconds: 1.0
   min_request_interval_seconds: 0.3
   detail_fetch_concurrency: 6
+  company_search_concurrency: 4
   max_pages_per_company: 100
   cache_ttl_hours: 3
   log_level: "INFO"

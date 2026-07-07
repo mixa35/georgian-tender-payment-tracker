@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 import json
 import os
 from pathlib import Path
+from typing import Callable, Iterator, TypeVar
 from zoneinfo import ZoneInfo
 
 from tender_tracker.config import AppSettings
@@ -13,6 +15,34 @@ from tender_tracker.models import CompanyRecord, PaymentRecord, RunState, Search
 from tender_tracker.state import RunStateStore
 from tender_tracker.storage import BaseStorage
 from tender_tracker.tender_client import TenderClientError, TenderPortalClient
+
+ItemT = TypeVar("ItemT")
+ResultT = TypeVar("ResultT")
+
+
+def _map_parallel(
+    fn: Callable[[ItemT], ResultT],
+    items: list[ItemT],
+    concurrency: int,
+) -> Iterator[tuple[ItemT, ResultT | None, TenderClientError | None]]:
+    """Run fn(item) across a bounded thread pool, yielding results as they complete.
+
+    A TenderClientError from fn is treated as an expected, per-item failure and
+    yielded as the error slot rather than aborting the batch; any other
+    exception propagates and stops the whole run.
+    """
+    if not items:
+        return
+    with ThreadPoolExecutor(max_workers=min(concurrency, len(items))) as executor:
+        future_to_item = {executor.submit(fn, item): item for item in items}
+        for future in as_completed(future_to_item):
+            item = future_to_item[future]
+            try:
+                result = future.result()
+            except TenderClientError as exc:
+                yield item, None, exc
+            else:
+                yield item, result, None
 
 
 def _serialize_record(record: PaymentRecord) -> dict:
@@ -131,6 +161,12 @@ class TenderTrackerApp:
             return None
         return _deserialize_record(payload)
 
+    def _search_one_company(self, company: CompanyRecord) -> list[SearchResultItem]:
+        results: list[SearchResultItem] = []
+        for status_id in self.settings.scraper.contract_status_ids:
+            results.extend(self.client.search_company(company, status_id))
+        return results
+
     def _collect_targets(self, state: RunState, companies: list[CompanyRecord]) -> list[SearchResultItem]:
         seen_app_ids = set(state.completed_tender_ids)
         seen_reg_ids = {
@@ -140,22 +176,23 @@ class TenderTrackerApp:
         }
         targets: list[SearchResultItem] = []
 
-        for company in companies:
-            if company.company_id in state.processed_company_ids:
-                continue
+        pending = [company for company in companies if company.company_id not in state.processed_company_ids]
+
+        # Only the network search itself runs in parallel; dedup, target
+        # collection, and state checkpointing below stay on this thread as
+        # each company's result arrives, so there's never a concurrent writer.
+        for company, company_results, error in _map_parallel(
+            self._search_one_company, pending, self.settings.scraper.company_search_concurrency
+        ):
             self._append_summary(state, companies_scanned=1)
-            try:
-                company_results: list[SearchResultItem] = []
-                for status_id in self.settings.scraper.contract_status_ids:
-                    company_results.extend(self.client.search_company(company, status_id))
-            except TenderClientError as exc:
-                state.failures[company.company_id] = str(exc)
+            if error is not None:
+                state.failures[company.company_id] = str(error)
                 self._append_summary(state, companies_skipped=1)
                 state.processed_company_ids.append(company.company_id)
                 self.state_store.save(state)
                 continue
 
-            for item in company_results:
+            for item in company_results or []:
                 reg_id = item.tender_registration_number
                 if item.app_id in seen_app_ids or (reg_id and reg_id in seen_reg_ids):
                     continue
