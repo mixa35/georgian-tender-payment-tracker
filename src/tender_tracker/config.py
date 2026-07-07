@@ -35,6 +35,7 @@ class ScraperSettings:
     retry_backoff_seconds: float
     min_request_interval_seconds: float
     detail_fetch_concurrency: int
+    company_search_concurrency: int
     max_pages_per_company: int
     cache_ttl_hours: int
     log_level: str
