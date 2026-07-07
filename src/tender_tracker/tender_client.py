@@ -58,6 +58,7 @@ class TenderPortalClient:
         self._last_request_at = 0.0
         self._request_lock = threading.Lock()
         self._page_param_name = settings.scraper.page_param_name.strip()
+        self._page_param_lock = threading.Lock()
         self.retry_count = 0
 
     def initialize(self) -> None:
@@ -208,7 +209,11 @@ class TenderPortalClient:
             return results
 
         if not self._page_param_name:
-            self._page_param_name = self._resolve_page_param(payload, first_page, company_id, company_name)
+            # Guards against concurrent company searches (see runner._map_parallel)
+            # each triggering their own redundant pagination-param discovery on first use.
+            with self._page_param_lock:
+                if not self._page_param_name:
+                    self._page_param_name = self._resolve_page_param(payload, first_page, company_id, company_name)
 
         for page_number in range(2, first_page.total_pages + 1):
             page_payload = dict(payload)

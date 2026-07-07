@@ -1,11 +1,13 @@
 from pathlib import Path
+import threading
+import time
 
 import pytest
 
 import tender_tracker.tender_client as tender_client_module
 from tender_tracker.config import load_settings
 from tender_tracker.logging_utils import build_logger
-from tender_tracker.models import CompanyRecord, SearchResultItem
+from tender_tracker.models import CompanyRecord, SearchPage, SearchResultItem
 from tender_tracker.parsers import ParseError
 from tender_tracker.tender_client import TenderClientError, TenderPortalClient
 
@@ -135,3 +137,35 @@ def test_fetch_tender_details_captures_parse_error_html(tmp_path: Path, monkeypa
     captured = debug_dir / "agr_docs_parse_error_572720.html"
     assert captured.exists()
     assert "broken" in captured.read_text(encoding="utf-8")
+
+
+def test_resolve_page_param_only_runs_once_under_concurrent_access(tmp_path: Path):
+    settings = load_settings("config/settings.yaml")
+    logger = build_logger(tmp_path / "test.log", "INFO")
+    client = TenderPortalClient(settings, logger=logger)
+    client._page_param_name = ""
+
+    call_count = {"n": 0}
+    count_lock = threading.Lock()
+
+    def fake_search_page(payload, company_id, company_name):
+        time.sleep(0.01)
+        return SearchPage(items=[], page_number=1, total_pages=2, total_records=2, no_records=False, raw_html="")
+
+    def fake_resolve(payload, first_page, company_id, company_name):
+        time.sleep(0.02)
+        with count_lock:
+            call_count["n"] += 1
+        return "page"
+
+    client._search_page = fake_search_page  # type: ignore[method-assign]
+    client._resolve_page_param = fake_resolve  # type: ignore[method-assign]
+
+    threads = [threading.Thread(target=lambda: client._search_all_pages({"x": "1"}, "c", "n")) for _ in range(6)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert call_count["n"] == 1
+    assert client._page_param_name == "page"
