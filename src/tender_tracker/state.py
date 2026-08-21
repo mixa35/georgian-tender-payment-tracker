@@ -41,7 +41,8 @@ class RunStateStore:
         return state
 
     def load(self, run_id: str) -> RunState:
-        payload = self.storage.read_json(self._run_state_path(run_id))
+        path = self._latest_state_path() if run_id == "latest" else self._run_state_path(run_id)
+        payload = self.storage.read_json(path)
         if payload is None:
             raise FileNotFoundError(f"Run state {run_id} was not found")
         return RunState.from_dict(payload)
