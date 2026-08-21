@@ -159,3 +159,18 @@ def test_run_state_store_round_trip(tmp_path: Path):
     state = store.create("run", {"mode": "run"}, [])
     loaded = store.load(state.run_id)
     assert loaded.run_id == state.run_id
+
+
+def test_run_state_store_load_latest(tmp_path: Path):
+    root = tmp_path / "storage"
+    storage = LocalStorage(root)
+    settings = load_settings("config/settings.yaml")
+    settings.storage.backend = "local"
+    settings.storage.local_root = str(root)
+    store = RunStateStore(settings, storage)
+    store.create("run", {"mode": "run"}, [])
+    newest = store.create("run", {"mode": "run"}, [])
+
+    loaded = store.load("latest")
+
+    assert loaded.run_id == newest.run_id

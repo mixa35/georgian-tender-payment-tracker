@@ -19,6 +19,22 @@ class StorageError(RuntimeError):
     """Raised when storage operations fail."""
 
 
+_TRANSIENT_EXCEPTIONS = (requests.exceptions.Timeout, requests.exceptions.ConnectionError)
+_TRANSIENT_RETRY_BACKOFF_SECONDS = (2, 4, 8)
+
+
+def _send_with_retry(send) -> requests.Response:
+    """Retry on a stalled/dropped connection; HTTP error responses are left to the caller."""
+    attempts = len(_TRANSIENT_RETRY_BACKOFF_SECONDS) + 1
+    for attempt in range(attempts):
+        try:
+            return send()
+        except _TRANSIENT_EXCEPTIONS:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(_TRANSIENT_RETRY_BACKOFF_SECONDS[attempt])
+
+
 class BaseStorage:
     def download_file(self, remote_path: str, local_path: Path) -> bool:
         raise NotImplementedError
@@ -129,7 +145,9 @@ class GraphOneDriveStorage(BaseStorage):
         for attempt in range(2):
             headers = dict(base_headers)
             headers.update(self._headers(force_refresh=attempt == 1))
-            response = self._session.request(method, url, headers=headers, timeout=60, **kwargs)
+            response = _send_with_retry(
+                lambda: self._session.request(method, url, headers=headers, timeout=60, **kwargs)
+            )
             if allow_404 and response.status_code == 404:
                 return response
             if response.status_code == 401 and attempt == 0:
@@ -202,7 +220,9 @@ class GraphOneDriveStorage(BaseStorage):
                     "Content-Length": str(len(chunk)),
                     "Content-Range": f"bytes {start}-{end}/{size}",
                 }
-                response = requests.put(upload_url, headers=headers, data=chunk, timeout=120)
+                response = _send_with_retry(
+                    lambda: requests.put(upload_url, headers=headers, data=chunk, timeout=120)
+                )
                 if response.status_code not in {200, 201, 202}:
                     raise StorageError(f"Upload session failed for {remote_path}: {response.status_code} {response.text[:400]}")
                 start = end + 1

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
+import requests
 
 from tender_tracker.config import load_settings
 from tender_tracker.storage import GraphOneDriveStorage
@@ -74,3 +75,46 @@ def test_graph_request_refreshes_after_401(monkeypatch: pytest.MonkeyPatch):
 
     assert response.status_code == 200
     assert calls == ["Bearer initial", "Bearer refreshed"]
+
+
+def test_graph_request_retries_transient_timeout_then_succeeds(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("MS_TENANT_ID", "tenant")
+    monkeypatch.setenv("MS_CLIENT_ID", "client")
+    monkeypatch.setenv("MS_CLIENT_SECRET", "secret")
+    settings = load_settings("config/settings.yaml")
+    storage = GraphOneDriveStorage(settings)
+    monkeypatch.setattr(storage, "_headers", lambda *, force_refresh=False: {"Authorization": "Bearer x"})
+    monkeypatch.setattr("tender_tracker.storage.time.sleep", lambda _seconds: None)
+
+    attempts = {"count": 0}
+
+    def fake_request(method: str, url: str, headers: dict[str, str], timeout: int, **kwargs):
+        attempts["count"] += 1
+        if attempts["count"] < 3:
+            raise requests.exceptions.ReadTimeout("stalled")
+        return DummyGraphResponse(200, "ok")
+
+    monkeypatch.setattr(storage._session, "request", fake_request)
+
+    response = storage._request("GET", "https://graph.microsoft.com/test")
+
+    assert response.status_code == 200
+    assert attempts["count"] == 3
+
+
+def test_graph_request_raises_after_exhausting_transient_retries(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("MS_TENANT_ID", "tenant")
+    monkeypatch.setenv("MS_CLIENT_ID", "client")
+    monkeypatch.setenv("MS_CLIENT_SECRET", "secret")
+    settings = load_settings("config/settings.yaml")
+    storage = GraphOneDriveStorage(settings)
+    monkeypatch.setattr(storage, "_headers", lambda *, force_refresh=False: {"Authorization": "Bearer x"})
+    monkeypatch.setattr("tender_tracker.storage.time.sleep", lambda _seconds: None)
+
+    def always_times_out(method: str, url: str, headers: dict[str, str], timeout: int, **kwargs):
+        raise requests.exceptions.ReadTimeout("stalled")
+
+    monkeypatch.setattr(storage._session, "request", always_times_out)
+
+    with pytest.raises(requests.exceptions.ReadTimeout):
+        storage._request("GET", "https://graph.microsoft.com/test")

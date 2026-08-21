@@ -33,7 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
     regid_parser.add_argument("--reg-id", required=True)
 
     resume_parser = subparsers.add_parser("resume")
-    resume_parser.add_argument("--run-id", required=True)
+    resume_parser.add_argument("--run-id", required=True, help="Run ID to resume, or 'latest' for the most recent run")
 
     smoke_parser = subparsers.add_parser("smoke-test")
     smoke_parser.add_argument("--company-id", default="")

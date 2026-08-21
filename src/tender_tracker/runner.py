@@ -258,6 +258,7 @@ class TenderTrackerApp:
             self.state_store.clear_cache()
         companies, unique_company_names = self._download_input()
         state = self.state_store.create("run", {"mode": "run"}, companies)
+        self.logger.info("run_id=%s", state.run_id)
         self.client.initialize()
         targets = self._collect_targets(state, companies)
         state.stage = "detail"
