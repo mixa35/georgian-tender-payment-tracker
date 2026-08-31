@@ -9,8 +9,10 @@ from pathlib import Path
 from typing import Callable, Iterator, TypeVar
 from zoneinfo import ZoneInfo
 
+from openpyxl import load_workbook
+
 from tender_tracker.config import AppSettings
-from tender_tracker.excel import read_debtor_companies, write_output_workbook
+from tender_tracker.excel import build_sheet_name, read_debtor_companies, write_output_workbook
 from tender_tracker.models import CompanyRecord, PaymentRecord, RunState, SearchResultItem
 from tender_tracker.state import RunStateStore
 from tender_tracker.storage import BaseStorage
@@ -120,6 +122,23 @@ class TenderTrackerApp:
 
     def _download_output_if_present(self) -> None:
         self.storage.download_file(self.settings.storage.onedrive.output_path, self.local_output)
+
+    def _todays_sheet_already_written(self) -> bool:
+        """True if the output workbook already has today's date sheet.
+
+        Guards against writing a duplicate day's sheet when the workflow ends
+        up triggered twice for the same day (e.g. a delayed GitHub Actions
+        schedule event landing after someone already ran it manually).
+        """
+        self._download_output_if_present()
+        if not self.local_output.exists():
+            return False
+        run_time = datetime.now(ZoneInfo(self.settings.excel.timezone))
+        workbook = load_workbook(self.local_output, read_only=True)
+        try:
+            return build_sheet_name(run_time) in workbook.sheetnames
+        finally:
+            workbook.close()
 
     def _upload_output(self) -> None:
         if self.local_output.exists():
@@ -254,6 +273,9 @@ class TenderTrackerApp:
 
     def run(self, clear_cache: bool = False) -> dict:
         self._prepare_debug_workspace()
+        if not clear_cache and self._todays_sheet_already_written():
+            self.logger.info("Output workbook already has today's sheet; skipping duplicate run.")
+            return {"run_id": None, "sheet_name": None, "skipped": "already_run_today"}
         if clear_cache:
             self.state_store.clear_cache()
         companies, unique_company_names = self._download_input()
