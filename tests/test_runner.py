@@ -1,12 +1,16 @@
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
+from openpyxl import Workbook
 
 from tender_tracker.config import load_settings
+from tender_tracker.excel import build_sheet_name
 from tender_tracker.logging_utils import build_logger
-from tender_tracker.models import CompanyRecord, SearchResultItem
+from tender_tracker.models import CompanyRecord, PaymentRecord, SearchResultItem
 from tender_tracker.runner import TenderTrackerApp, _map_parallel
 from tender_tracker.state import RunStateStore
 from tender_tracker.storage import LocalStorage
@@ -92,6 +96,27 @@ class FakeClient:
             raise TenderClientError(f"boom-{company.company_id}")
         return self.results_by_company.get(company.company_id, [])
 
+    def initialize(self) -> None:
+        pass
+
+    retry_count = 0
+
+    def fetch_tender_details_concurrent(self, targets, *, on_success, on_failure) -> None:
+        for item in targets:
+            on_success(
+                PaymentRecord(
+                    company_id=item.company_id,
+                    company_name=item.company_name,
+                    app_id=item.app_id,
+                    tender_registration_number=item.tender_registration_number,
+                    raw_amount="100.00",
+                    cleaned_amount=100.0,
+                    raw_payment_date="01/01/2026",
+                    parsed_payment_date=None,
+                    payment_exists=True,
+                )
+            )
+
 
 def _make_app(tmp_path: Path, client: FakeClient, concurrency: int = 3) -> tuple[TenderTrackerApp, RunStateStore]:
     settings = load_settings("config/settings.yaml")
@@ -170,3 +195,51 @@ def test_collect_targets_skips_already_processed_companies(tmp_path: Path):
 
     assert [item.app_id for item in targets] == ["app-2"]
     assert client.calls == ["2"]
+
+
+def test_run_skips_as_duplicate_when_todays_sheet_already_exists(tmp_path: Path):
+    companies = [CompanyRecord(company_id="1", company_name="A", overdue_days_raw="1")]
+    client = FakeClient({"1": [_search_item("app-1", "1")]})
+    app, _ = _make_app(tmp_path, client)
+
+    today_name = build_sheet_name(datetime.now(ZoneInfo(app.settings.excel.timezone)))
+    workbook = Workbook()
+    workbook.active.title = today_name
+    existing_output = tmp_path / "existing_output.xlsm"
+    workbook.save(existing_output)
+    app.storage.upload_file(existing_output, app.settings.storage.onedrive.output_path)
+
+    result = app.run()
+
+    assert result == {"run_id": None, "sheet_name": None, "skipped": "already_run_today"}
+    assert client.calls == []
+
+
+def test_run_with_clear_cache_ignores_existing_todays_sheet(tmp_path: Path):
+    companies = [CompanyRecord(company_id="1", company_name="A", overdue_days_raw="1")]
+    client = FakeClient({"1": [_search_item("app-1", "1")]})
+    app, _ = _make_app(tmp_path, client)
+
+    today_name = build_sheet_name(datetime.now(ZoneInfo(app.settings.excel.timezone)))
+    workbook = Workbook()
+    workbook.active.title = today_name
+    existing_output = tmp_path / "existing_output.xlsm"
+    workbook.save(existing_output)
+    app.storage.upload_file(existing_output, app.settings.storage.onedrive.output_path)
+
+    excel_settings = app.settings.excel
+    input_workbook = Workbook()
+    input_sheet = input_workbook.active
+    input_sheet.title = excel_settings.input_sheet_name
+    input_sheet.append(
+        [excel_settings.company_id_column, excel_settings.company_name_column, excel_settings.overdue_days_column]
+    )
+    input_sheet.append(["1", "A", "5"])
+    existing_input = tmp_path / "existing_input.xlsx"
+    input_workbook.save(existing_input)
+    app.storage.upload_file(existing_input, app.settings.storage.onedrive.input_path)
+
+    result = app.run(clear_cache=True)
+
+    assert result.get("skipped") is None
+    assert client.calls == ["000000001"]
