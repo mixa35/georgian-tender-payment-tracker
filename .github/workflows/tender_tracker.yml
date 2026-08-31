@@ -48,6 +48,10 @@ on:
   schedule:
     - cron: "37 2 * * *"
 
+concurrency:
+  group: tender-tracker
+  cancel-in-progress: false
+
 jobs:
   run:
     runs-on: ubuntu-latest
