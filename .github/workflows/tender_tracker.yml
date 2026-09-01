@@ -46,7 +46,7 @@ on:
         default: false
         type: boolean
   schedule:
-    - cron: "37 2 * * *"
+    - cron: "37 0 * * *"
 
 concurrency:
   group: tender-tracker
