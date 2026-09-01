@@ -36,5 +36,4 @@ excel:
   overdue_days_column: "ვადაგადაცილებული დღეების რაოდენობა"
 
 workflow:
-  default_cron: "0 5 * * *"
   github_artifact_name: "tender-tracker-debug"
