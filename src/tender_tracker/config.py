@@ -56,7 +56,6 @@ class ExcelSettings:
 
 @dataclass(slots=True)
 class WorkflowSettings:
-    default_cron: str
     github_artifact_name: str
 
 
