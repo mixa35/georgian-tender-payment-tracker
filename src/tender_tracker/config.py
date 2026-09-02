@@ -79,7 +79,21 @@ def load_settings(config_path: str | Path, *, debug_override: bool = False) -> A
     path = Path(config_path)
     payload = yaml.safe_load(path.read_text(encoding="utf-8"))
 
-    onedrive = OneDriveSettings(**payload["storage"]["onedrive"])
+    # OneDrive tenant and paths are deployment-specific. Every field may be overridden by an
+    # environment variable so the committed config carries no tenant details.
+    onedrive_payload = dict(payload["storage"]["onedrive"])
+    for field, env_var in (
+        ("user_principal_name", "ONEDRIVE_UPN"),
+        ("input_path", "ONEDRIVE_INPUT_PATH"),
+        ("output_path", "ONEDRIVE_OUTPUT_PATH"),
+        ("state_root", "ONEDRIVE_STATE_ROOT"),
+        ("logs_root", "ONEDRIVE_LOGS_ROOT"),
+        ("debug_root", "ONEDRIVE_DEBUG_ROOT"),
+    ):
+        override = os.getenv(env_var)
+        if override:
+            onedrive_payload[field] = override
+    onedrive = OneDriveSettings(**onedrive_payload)
     storage = StorageSettings(
         backend=payload["storage"]["backend"],
         local_root=payload["storage"]["local_root"],

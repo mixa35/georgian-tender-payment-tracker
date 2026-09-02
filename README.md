@@ -62,11 +62,28 @@ Important OneDrive settings:
 - `storage.onedrive.logs_root`
 - `storage.onedrive.debug_root`
 
+The values committed here are placeholders. Each one can be overridden by an environment
+variable, so a real tenant and its file paths never need to be committed:
+
+| Setting | Environment variable |
+| --- | --- |
+| `user_principal_name` | `ONEDRIVE_UPN` |
+| `input_path` | `ONEDRIVE_INPUT_PATH` |
+| `output_path` | `ONEDRIVE_OUTPUT_PATH` |
+| `state_root` | `ONEDRIVE_STATE_ROOT` |
+| `logs_root` | `ONEDRIVE_LOGS_ROOT` |
+| `debug_root` | `ONEDRIVE_DEBUG_ROOT` |
+
+An environment variable wins when it is set and non-empty; otherwise the YAML value is used.
+
 ## Required GitHub Secrets
 
 - `MS_TENANT_ID`
 - `MS_CLIENT_ID`
 - `MS_CLIENT_SECRET`
+- `ONEDRIVE_UPN`
+- `ONEDRIVE_INPUT_PATH`
+- `ONEDRIVE_OUTPUT_PATH`
 
 The Azure / Entra app registration needs Microsoft Graph application permissions that allow reading and writing the target user's OneDrive for Business files.
 

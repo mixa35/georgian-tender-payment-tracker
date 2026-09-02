@@ -2,9 +2,9 @@ storage:
   backend: onedrive
   local_root: "."
   onedrive:
-    user_principal_name: "user@example.onmicrosoft.com"
-    input_path: "/Reports/input-report.xlsx"
-    output_path: "/Reports/tender-payments.xlsm"
+    user_principal_name: "user@example.onmicrosoft.com"   # override: ONEDRIVE_UPN
+    input_path: "/Reports/input-report.xlsx"              # override: ONEDRIVE_INPUT_PATH
+    output_path: "/Reports/tender-payments.xlsm"          # override: ONEDRIVE_OUTPUT_PATH
     state_root: "/TenderTracker/state"
     logs_root: "/TenderTracker/logs"
     debug_root: "/TenderTracker/debug"

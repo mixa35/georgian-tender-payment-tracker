@@ -61,6 +61,11 @@ jobs:
       MS_TENANT_ID: ${{ secrets.MS_TENANT_ID }}
       MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
       MS_CLIENT_SECRET: ${{ secrets.MS_CLIENT_SECRET }}
+      # Deployment-specific OneDrive target. Kept out of config/settings.yaml so the
+      # public repo carries no tenant details; see src/tender_tracker/config.py.
+      ONEDRIVE_UPN: ${{ secrets.ONEDRIVE_UPN }}
+      ONEDRIVE_INPUT_PATH: ${{ secrets.ONEDRIVE_INPUT_PATH }}
+      ONEDRIVE_OUTPUT_PATH: ${{ secrets.ONEDRIVE_OUTPUT_PATH }}
       PYTHONUNBUFFERED: "1"
     steps:
       - name: Check out repo
