@@ -66,6 +66,11 @@ jobs:
       ONEDRIVE_UPN: ${{ secrets.ONEDRIVE_UPN }}
       ONEDRIVE_INPUT_PATH: ${{ secrets.ONEDRIVE_INPUT_PATH }}
       ONEDRIVE_OUTPUT_PATH: ${{ secrets.ONEDRIVE_OUTPUT_PATH }}
+      # Input-workbook headings — the customer's own spreadsheet, kept out of the
+      # public config for the same reason as the OneDrive paths above.
+      EXCEL_COMPANY_ID_COLUMN: ${{ secrets.EXCEL_COMPANY_ID_COLUMN }}
+      EXCEL_COMPANY_NAME_COLUMN: ${{ secrets.EXCEL_COMPANY_NAME_COLUMN }}
+      EXCEL_OVERDUE_DAYS_COLUMN: ${{ secrets.EXCEL_OVERDUE_DAYS_COLUMN }}
       PYTHONUNBUFFERED: "1"
     steps:
       - name: Check out repo

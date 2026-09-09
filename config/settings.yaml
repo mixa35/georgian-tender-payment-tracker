@@ -28,12 +28,14 @@ scraper:
   browser_user_agent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36"
 
 excel:
-  input_sheet_name: "2024"
+  input_sheet_name: "2024"                 # override: EXCEL_INPUT_SHEET_NAME
   output_sheet_date_format: "d MMM"
   timezone: "Asia/Tbilisi"
-  company_id_column: "კომპანიის_საიდენტიფიკაციო_კოდი"
-  company_name_column: "კომპანია"
-  overdue_days_column: "ვადაგადაცილებული დღეების რაოდენობა"
+  # Placeholders. The real headings are the customer's own and are supplied at
+  # runtime via the env vars below; see README "Configuration".
+  company_id_column: "company_id"          # override: EXCEL_COMPANY_ID_COLUMN
+  company_name_column: "company_name"      # override: EXCEL_COMPANY_NAME_COLUMN
+  overdue_days_column: "overdue_days"      # override: EXCEL_OVERDUE_DAYS_COLUMN
 
 workflow:
   github_artifact_name: "tender-tracker-debug"

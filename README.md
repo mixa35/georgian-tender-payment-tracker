@@ -97,13 +97,19 @@ environment variable wins whenever it is set and non-empty:
 | `state_root` | `ONEDRIVE_STATE_ROOT` |
 | `logs_root` | `ONEDRIVE_LOGS_ROOT` |
 | `debug_root` | `ONEDRIVE_DEBUG_ROOT` |
+| `excel.input_sheet_name` | `EXCEL_INPUT_SHEET_NAME` |
+| `excel.company_id_column` | `EXCEL_COMPANY_ID_COLUMN` |
+| `excel.company_name_column` | `EXCEL_COMPANY_NAME_COLUMN` |
+| `excel.overdue_days_column` | `EXCEL_OVERDUE_DAYS_COLUMN` |
 
-The values committed in `settings.yaml` are placeholders, so a real tenant and its file paths
-never need to reach the repository.
+The values committed in `settings.yaml` are placeholders, so neither a real tenant, its file
+paths, nor the customer's own spreadsheet headings ever need to reach the repository. An unset
+override is treated as absent and the placeholder is used — which then fails loudly with an
+`InputWorkbookError` naming the columns it expected, rather than silently reading nothing.
 
 ### Required GitHub Secrets
 
-`MS_TENANT_ID` · `MS_CLIENT_ID` · `MS_CLIENT_SECRET` · `ONEDRIVE_UPN` · `ONEDRIVE_INPUT_PATH` · `ONEDRIVE_OUTPUT_PATH`
+`MS_TENANT_ID` · `MS_CLIENT_ID` · `MS_CLIENT_SECRET` · `ONEDRIVE_UPN` · `ONEDRIVE_INPUT_PATH` · `ONEDRIVE_OUTPUT_PATH` · `EXCEL_COMPANY_ID_COLUMN` · `EXCEL_COMPANY_NAME_COLUMN` · `EXCEL_OVERDUE_DAYS_COLUMN`
 
 The Azure / Entra app registration needs Microsoft Graph **application** permissions to read and
 write the target user's OneDrive for Business files.

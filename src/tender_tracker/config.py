@@ -102,7 +102,20 @@ def load_settings(config_path: str | Path, *, debug_override: bool = False) -> A
     scraper = ScraperSettings(**payload["scraper"])
     if debug_override:
         scraper.debug_html_capture = True
-    excel = ExcelSettings(**payload["excel"])
+    # Input-workbook column headers are deployment-specific too: they are the
+    # customer's own spreadsheet headings, not constants of this program. Same
+    # override rule as OneDrive above, so the committed config carries none of them.
+    excel_payload = dict(payload["excel"])
+    for field, env_var in (
+        ("input_sheet_name", "EXCEL_INPUT_SHEET_NAME"),
+        ("company_id_column", "EXCEL_COMPANY_ID_COLUMN"),
+        ("company_name_column", "EXCEL_COMPANY_NAME_COLUMN"),
+        ("overdue_days_column", "EXCEL_OVERDUE_DAYS_COLUMN"),
+    ):
+        override = os.getenv(env_var)
+        if override:
+            excel_payload[field] = override
+    excel = ExcelSettings(**excel_payload)
     workflow = WorkflowSettings(**payload["workflow"])
     auth = AuthSettings(
         tenant_id=os.getenv("MS_TENANT_ID", ""),

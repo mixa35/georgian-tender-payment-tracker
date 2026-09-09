@@ -19,9 +19,13 @@ their active/completed tenders, and writes results to an output Excel file.
 Excel file: the workbook named by `storage.onedrive.input_path`
 (supplied at runtime via `ONEDRIVE_INPUT_PATH`). Column names are configuration,
 not constants — see the `excel:` block in `config/settings.yaml`:
-- Column: კომპანიის_საიდენტიფიკაციო_კოდი  → company 9-digit Georgian ID code
-- Column: კომპანია                          → company name
-- Column: ვადაგადაცილებული დღეების რაოდენობა → overdue days (filter: > 0 and not starting with "-")
+- `company_id_column`   → company 9-digit Georgian ID code   (env: `EXCEL_COMPANY_ID_COLUMN`)
+- `company_name_column` → company name                        (env: `EXCEL_COMPANY_NAME_COLUMN`)
+- `overdue_days_column` → overdue days (filter: > 0 and not starting with "-")
+                                                              (env: `EXCEL_OVERDUE_DAYS_COLUMN`)
+
+The committed values are English placeholders; the live workbook's real Georgian
+headings are supplied by those environment variables and are never committed.
 - Read all rows, filter for overdue > 0, deduplicate by company ID
 
 ## Output

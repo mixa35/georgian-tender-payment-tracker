@@ -4,11 +4,11 @@
 File: input-report.xlsx
 - Read all rows (columns 1-24, first row is header)
 - Filter rows where:
-  - "ვადაგადაცილებული დღეების რაოდენობა" does NOT start with "-"
-  - AND "ვადაგადაცილებული დღეების რაოდენობა" > 0
-- Sort by "კომპანია" ascending
-- Extract unique company IDs from "კომპანიის_საიდენტიფიკაციო_კოდი" (deduplicated)
-- Extract unique company names from "კომპანია" (deduplicated, case-insensitive)
+  - the overdue-days column does NOT start with "-"
+  - AND the overdue-days column > 0
+- Sort by the company-name column ascending
+- Extract unique company IDs from the company-id column (deduplicated)
+- Extract unique company names from the company-name column (deduplicated, case-insensitive)
 
 ## Step 2: For Each Company ID
 

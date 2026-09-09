@@ -16,15 +16,20 @@ from tender_tracker.state import RunStateStore
 from tender_tracker.storage import LocalStorage
 
 
-def create_input_workbook(path: Path) -> None:
+def create_input_workbook(path: Path, excel_settings=None) -> None:
+    # Headers come from configuration, not from literals: the real deployment
+    # supplies its own headings via EXCEL_*_COLUMN, so hardcoding them here would
+    # only test one deployment's spreadsheet.
+    if excel_settings is None:
+        excel_settings = load_settings("config/settings.yaml").excel
     workbook = Workbook()
     sheet = workbook.active
-    sheet.title = "2024"
+    sheet.title = excel_settings.input_sheet_name
     sheet.append(
         [
-            "კომპანიის_საიდენტიფიკაციო_კოდი",
-            "კომპანია",
-            "ვადაგადაცილებული დღეების რაოდენობა",
+            excel_settings.company_id_column,
+            excel_settings.company_name_column,
+            excel_settings.overdue_days_column,
         ]
     )
     sheet.append([123456789, "Alpha", 3])
@@ -48,8 +53,8 @@ def test_read_debtor_companies_raises_helpful_error_for_missing_columns(tmp_path
     workbook_path = tmp_path / "input.xlsx"
     workbook = Workbook()
     sheet = workbook.active
-    sheet.title = "2024"
     settings = load_settings("config/settings.yaml")
+    sheet.title = settings.excel.input_sheet_name
     sheet.append([settings.excel.company_name_column, settings.excel.overdue_days_column])
     sheet.append(["Alpha", 3])
     workbook.save(workbook_path)
