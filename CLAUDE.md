@@ -16,14 +16,22 @@ their active/completed tenders, and writes results to an output Excel file.
 - Site uses jQuery 1.8.3 (2012 era). Very old, very simple backend.
 
 ## Input
-Excel file: input-report.xlsx
-- Column: კომპანიის_საიდენტიფიკაციო_კოდი  → company 9-digit Georgian ID code
-- Column: კომპანია                          → company name
-- Column: ვადაგადაცილებული დღეების რაოდენობა → overdue days (filter: > 0 and not starting with "-")
+Excel file: the workbook named by `storage.onedrive.input_path`
+(supplied at runtime via `ONEDRIVE_INPUT_PATH`). Column names are configuration,
+not constants — see the `excel:` block in `config/settings.yaml`:
+- `company_id_column`   → company 9-digit Georgian ID code   (env: `EXCEL_COMPANY_ID_COLUMN`)
+- `company_name_column` → company name                        (env: `EXCEL_COMPANY_NAME_COLUMN`)
+- `overdue_days_column` → overdue days (filter: > 0 and not starting with "-")
+                                                              (env: `EXCEL_OVERDUE_DAYS_COLUMN`)
+
+The committed values are English placeholders; the live workbook's real Georgian
+headings are supplied by those environment variables and are never committed.
 - Read all rows, filter for overdue > 0, deduplicate by company ID
 
 ## Output
-Excel file: ვალდებული კომპანიების ჩარიცხვები მიმდინარე ტენდერებზე.xlsm
+Excel file: the `.xlsm` workbook named by `storage.onedrive.output_path`
+(placeholder in `config/settings.yaml`; the real deployment path is supplied at
+runtime via the `ONEDRIVE_OUTPUT_PATH` secret and is not committed).
 - New sheet named with today's date (format: "d MMM", e.g. "1 Apr")
 - Columns: A=amount(raw), B=payment_date(raw), C=company_name, D=amount(numeric cleaned), E=payment_date(as date)
 
